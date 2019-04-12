@@ -120,6 +120,39 @@ describe ActiveElasticJob::Rack::SqsMessageConsumer do
             expect(response[0]).to eq('403')
           end
         end
+
+        context "running under Puma" do
+          let(:current_server) { double("Puma Server") }
+
+          before do
+            unless defined?(Puma::Server)
+              Object.const_set("Puma", Module.new)
+              Puma.const_set("Server", Module.new)
+            end
+
+            allow(Puma::Server).to receive(:current).and_return current_server
+          end
+
+          context "when worker is shutting down" do
+            before do
+              allow(current_server).to receive(:shutting_down?).and_return(true)
+            end
+
+            it "does not accepts new messages" do
+              expect(sqs_message_consumer.call(env)[0]).to eq('503')
+            end
+          end
+
+          context "when worker is running normally" do
+            before do
+              allow(current_server).to receive(:shutting_down?).and_return(false)
+            end
+
+            it "does not accepts new messages" do
+              expect(sqs_message_consumer.call(env)[0]).to eq('200')
+            end
+          end
+        end
       end
     end
   end
