@@ -1,5 +1,9 @@
 FROM ruby:2.5
 
+# avoids the "You must use Bundler 2 or greater with this lockfile." problem
+RUN gem update --system
+RUN gem install bundler
+
 # throw errors if Gemfile has been modified since Gemfile.lock
 RUN bundle config --global frozen 1
 
