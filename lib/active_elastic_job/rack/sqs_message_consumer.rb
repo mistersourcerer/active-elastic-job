@@ -26,6 +26,11 @@ module ActiveElasticJob
         [ 'Request forbidden!'.freeze ]
       ]
       DOCKER_HOST_IP = '172.17.0.1'.freeze
+      SHUTTING_DOWN_RESPONSE = [
+        '503'.freeze,
+        { 'Content-Type'.freeze => 'text/plain'.freeze },
+        [ 'Worker is shutting down.'.freeze ]
+      ]
 
       def initialize(app) #:nodoc:
         @app = app
@@ -43,6 +48,7 @@ module ActiveElasticJob
             return OK_RESPONSE
           elsif originates_from_gem?(request)
             begin
+              return SHUTTING_DOWN_RESPONSE if shutting_down?
               execute_job(request)
             rescue ActiveElasticJob::MessageVerifier::InvalidDigest => e
               return FORBIDDEN_RESPONSE
@@ -123,6 +129,14 @@ module ActiveElasticJob
 
       def app_runs_in_docker_container?
         @app_in_docker_container ||= `[ -f /proc/1/cgroup ] && cat /proc/1/cgroup` =~ /docker/
+      end
+
+      def shutting_down?
+        if defined?(Puma::Server)
+          return Puma::Server.current.shutting_down?
+        end
+
+        false
       end
     end
   end
